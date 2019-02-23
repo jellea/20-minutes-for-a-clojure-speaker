@@ -1,0 +1,904 @@
+
+
+      
+
+      
+<div>
+<h2 id="_getting_started"><a href="#_getting_started"></a>Getting started</h2>
+<div>
+<p>The <a href="https://clojure.org/about/spec">spec</a> library specifies the structure of data, validates or destructures it, and can generate data based on the spec.</p>
+<p>To use spec, declare a dependency on Clojure 1.9:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>To start working with spec, require the <code>clojure.spec.alpha</code> namespace at the REPL:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Or include spec in your namespace:</p>
+<div>
+<div>
+
+</div>
+</div>
+</div>
+</div>
+<div>
+<h2 id="_predicates"><a href="#_predicates"></a>Predicates</h2>
+<div>
+<p>Each spec describes a set of allowed values. There are several ways to build specs and all of them can be composed to build more sophisticated specs.</p>
+<p>Any existing Clojure function that takes a single argument and returns a truthy value is a valid predicate spec. We can check whether a particular data value conforms to a spec using <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/conform"><code>conform</code></a>:</p>
+
+<p>The <code>conform</code> function takes something that can be a spec and a data value. Here we are passing a predicate which is implicitly converted into a spec. The return value is "conformed". Here, the conformed value is the same as the original value - we’ll see later where that starts to deviate. If the value does not conform to the spec, the special value <code>:clojure.spec.alpha/invalid</code> is returned.</p>
+<p>If you don’t want to use the conformed value or check for <code>:clojure.spec.alpha/invalid</code>, the helper <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/valid?"><code>valid?</code></a> can be used instead to return a boolean.</p>
+
+<p>Note that again <code>valid?</code> implicitly converts the predicate function into a spec. The spec library allows you to leverage all of the functions you already have - there is no special dictionary of predicates. Some more examples:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Sets can also be used as predicates that match one or more literal values:</p>
+<div>
+<div>
+
+</div>
+</div>
+</div>
+</div>
+<div>
+<h2 id="_registry"><a href="#_registry"></a>Registry</h2>
+<div>
+<p>Until now, we’ve been using specs directly. However, spec provides a central registry for globally declaring reusable specs. The registry associates a namespaced keyword with a specification. The use of namespaces ensures that we can define reusable non-conflicting specs across libraries or applications.</p>
+<p>Specs are registered using <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/def"><code>def</code></a>. It’s up to you to register the specification in a namespace that makes sense (typically a namespace you control).</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>A registered spec identifier can be used in place of a spec definition in the operations we’ve seen so far - <code>conform</code> and <code>valid?</code>.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>You will see later that registered specs can (and should) be used anywhere we compose specs.</p>
+
+<p>Once a spec has been added to the registry, <code>doc</code> knows how to find it and print it as well:</p>
+<div>
+<div>
+
+</div>
+</div>
+</div>
+</div>
+<div>
+<h2 id="_composing_predicates"><a href="#_composing_predicates"></a>Composing predicates</h2>
+<div>
+<p>The simplest way to compose specs is with <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/and"><code>and</code></a> and <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/or"><code>or</code></a>. Let’s create a spec that combines several predicates into a composite spec with <code>s/and</code>:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>We can also use <code>s/or</code> to specify two alternatives:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>This <code>or</code> spec is the first case we’ve seen that involves a choice during validity checking. Each choice is annotated with a tag (here, between <code>:name</code> and <code>:id</code>) and those tags give the branches names that can be used to understand or enrich the data returned from <code>conform</code> and other spec functions.</p>
+<p>When an <code>or</code> is conformed, it returns a vector with the tag name and conformed value:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Many predicates that check an instance’s type do not allow <code>nil</code> as a valid value (<code>string?</code>, <code>number?</code>, <code>keyword?</code>, etc). To include <code>nil</code> as a valid value, use the provided function <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/nilable"><code>nilable</code></a> to make a spec:</p>
+<div>
+<div>
+
+</div>
+</div>
+</div>
+</div>
+<div>
+<h2 id="_explain"><a href="#_explain"></a>Explain</h2>
+<div>
+<p><a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/explain"><code>explain</code></a> is another high-level operation in spec that can be used to report (to <code>*out*</code>) why a value does not conform to a spec. Let’s see what explain says about some non-conforming examples we’ve seen so far.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Let’s examine the output of the final example more closely. First note that there are two errors being reported - spec will evaluate all possible alternatives and report errors on every path. The parts of each error are:</p>
+<div>
+<ul>
+<li>
+<p>val - the value in the user’s input that does not match</p>
+</li>
+<li>
+<p>spec - the spec that was being evaluated</p>
+</li>
+<li>
+<p>at - a path (a vector of keywords) indicating the location within the spec where the error occurred - the tags in the path correspond to any tagged part in a spec (the alternatives in an <code>or</code> or <code>alt</code>, the parts of a <code>cat</code>, the keys in a map, etc)</p>
+</li>
+<li>
+<p>predicate - the actual predicate that was not satisfied by val</p>
+</li>
+<li>
+<p>in - the key path through a nested data val to the failing value. In this example, the top-level value is the one that is failing so this is essentially an empty path and is omitted.</p>
+</li>
+</ul>
+</div>
+<p>For the first reported error we can see that the value <code>:foo</code> did not satisfy the predicate <code>string?</code> at the path <code>:name</code> in the spec <code>::name-or-id</code>. The second reported error is similar but fails on the <code>:id</code> path instead. The actual value is a keyword so neither is a match.</p>
+<p>In addition to <code>explain</code>, you can use <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/explain-str"><code>explain-str</code></a> to receive the error messages as a string or  <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/explain-data"><code>explain-data</code></a> to receive the errors as data.</p>
+<div>
+<div>
+
+</div>
+</div>
+<div>
+<table>
+<tbody><tr>
+<td>
+<i title="Note"></i>
+</td>
+<td>
+<p>This result also demonstrates the new namespace map literal syntax added in Clojure 1.9. Maps may be prefixed with <code>#:</code> or <code>#::</code> (for autoresolve) to specify a default namespace for all keys in the map. In this example, this is equivalent to <code>{:clojure.spec.alpha/problems …​}</code></p>
+</td>
+</tr>
+</tbody></table>
+</div>
+</div>
+</div>
+<div>
+<h2 id="_entity_maps"><a href="#_entity_maps"></a>Entity Maps</h2>
+<div>
+<p>Clojure programs rely heavily on passing around maps of data. A common approach in other libraries is to describe each entity type, combining both the keys it contains and the structure of their values. Rather than define attribute (key+value) specifications in the scope of the entity (the map), specs assign meaning to individual attributes,
+then collect them into maps using set semantics (on the keys). This approach allows us to start assigning (and sharing)
+semantics at the attribute level across our libraries and applications.</p>
+<p>For example, most Ring middleware functions modify the request or response map with unqualified keys. However, each middleware could instead use namespaced keys with registered semantics for those keys. The keys could then be checked for conformance, creating a system with greater opportunities for collaboration and consistency.</p>
+<p>Entity maps in spec are defined with <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/keys"><code>keys</code></a>:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>This registers a <code>::person</code> spec with the required keys <code>::first-name</code>, <code>::last-name</code>, and <code>::email</code>, with optional key <code>::phone</code>. The map spec never specifies the value spec for the attributes, only what attributes are required or optional.</p>
+<p>When conformance is checked on a map, it does two things - checking that the required attributes are included, and checking that every registered key has a conforming value. We’ll see later where optional attributes can be useful. Also note that ALL attributes are checked via <code>keys</code>, not just those listed in the <code>:req</code> and <code>:opt</code> keys. Thus a bare <code>(s/keys)</code> is valid and will check all attributes of a map without checking which keys are required or optional.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Let’s take a moment to examine the explain error output on that final example:</p>
+<div>
+<ul>
+<li>
+<p>in - the path within the data to the failing value (here, a key in the person instance)</p>
+</li>
+<li>
+<p>val - the failing value, here <code>"n/a"</code></p>
+</li>
+<li>
+<p>spec - the spec that failed, here <code>:my.domain/email</code></p>
+</li>
+<li>
+<p>at - the path in the spec where the failing value is located</p>
+</li>
+<li>
+<p>predicate - the predicate that failed, here <code>(re-matches email-regex %)</code></p>
+</li>
+</ul>
+</div>
+<p>Much existing Clojure code does not use maps with namespaced keys and so <code>keys</code> can also specify <code>:req-un</code> and <code>:opt-un</code> for required and optional unqualified keys. These variants specify namespaced keys used to find their specification, but the map only checks for the unqualified version of the keys.</p>
+<p>Let’s consider a person map that uses unqualified keys but checks conformance against the namespaced specs we registered earlier:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Unqualified keys can also be used to validate record attributes:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>One common occurrence in Clojure is the use of "keyword args" where keyword keys and values are passed in a sequential data structure as options. Spec provides special support for this pattern with the regex op <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/keys*"><code>keys*</code></a>. <code>keys*</code> has the same syntax and semantics as <code>keys</code> but can be embedded inside a sequential regex structure.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Sometimes it will be convenient to declare entity maps in parts, either because there are different sources for requirements on an entity map or because there is a common set of keys and variant-specific parts. The <code>s/merge</code> spec can be used to combine multiple <code>s/keys</code> specs into a single spec that combines their requirements. For example consider two <code>keys</code> specs that define common animal attributes and some dog-specific ones. The dog entity itself can be described as a <code>merge</code> of those two attribute sets:</p>
+<div>
+<div>
+
+</div>
+</div>
+</div>
+</div>
+<div>
+<h2 id="_multi_spec"><a href="#_multi_spec"></a>multi-spec</h2>
+<div>
+<p>One common occurrence in Clojure is to use maps as tagged entities and a special field that indicates the "type" of the map where type indicates a potentially open set of types, often with shared attributes across the types.</p>
+<p>As previously discussed, the attributes for all types are well-specified using attributes stored in the registry by namespaced keyword. Attributes shared across entity types automatically gain shared semantics. However, we also want to be able to specify the required keys per entity type and for that spec provides <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/multi-spec"><code>multi-spec</code></a> which leverages a multimethod to provide for the specification of an open set of entity types based on a type tag.</p>
+<p>For example, imagine an API that received event objects which shared some common fields but also had type-specific shapes. First we would register the event attributes:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>We then need a multimethod that defines a dispatch function for choosing the selector (here our <code>:event/type</code> field) and returns the appropriate spec based on the value:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>The methods should ignore their argument and return the spec for the specified type. Here we’ve fully spec’ed two possible events - a "search" event and an "error" event.</p>
+<p>And then finally we are ready to declare our <code>multi-spec</code> and try it out.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Let’s take a moment to examine the explain error output on that final example. There were two different kinds of failures detected. The first failure is due to the missing required <code>:event/timestamp</code> key in the event. The second is from the invalid <code>:search/url</code> value (a number instead of a string). We see the same parts as prior explain errors:</p>
+<div>
+<ul>
+<li>
+<p>in - the path within the data to the failing value. This is omitted on the first error as it’s at the root value but is the key in the map on the second error.</p>
+</li>
+<li>
+<p>val - the failing value, either the full map or the individual key in the map</p>
+</li>
+<li>
+<p>spec - the actual spec that failed</p>
+</li>
+<li>
+<p>at - the path in the spec where the failing value occurred</p>
+</li>
+<li>
+<p>predicate - the actual predicate that failed</p>
+</li>
+</ul>
+</div>
+<p>The <code>multi-spec</code> approach allows us to create an <strong>open</strong> system for spec validation, just like multimethods and protocols. New event types can be added later by just extending the <code>event-type</code> multimethod.</p>
+</div>
+</div>
+<div>
+<h2 id="_collections"><a href="#_collections"></a>Collections</h2>
+<div>
+<p>A few helpers are provided for other special collection cases - <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/coll-of"><code>coll-of</code></a>, <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/tuple"><code>tuple</code></a>, and  <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/map-of"><code>map-of</code></a>.</p>
+<p>For the special case of a homogenous collection of arbitrary size, you can use <code>coll-of</code> to specify a collection of elements satisfying a predicate.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Additionally, <code>coll-of</code> can be passed a number of keyword arg options:</p>
+<div>
+<ul>
+<li>
+<p><code>:kind</code> - a predicate or spec that the incoming collection must satisfy, such as <code>vector?</code></p>
+</li>
+<li>
+<p><code>:count</code> - specifies exact expected count</p>
+</li>
+<li>
+<p><code>:min-count</code>, <code>:max-count</code> - checks that collection has <code>(&lt;= min-count count max-count)</code></p>
+</li>
+<li>
+<p><code>:distinct</code> - checks that all elements are distinct</p>
+</li>
+<li>
+<p><code>:into</code> - one of [], (), {}, or #{} for output conformed value. If <code>:into</code> is not specified, the input collection type will be used.</p>
+</li>
+</ul>
+</div>
+<p>Following is an example utilizing some of these options to spec a vector containing three distinct numbers conformed as a set and some of the errors for different kinds of invalid values:</p>
+<div>
+<div>
+
+</div>
+</div>
+<div>
+<table>
+<tbody><tr>
+<td>
+<i title="Note"></i>
+</td>
+<td>
+<p>Both <code>coll-of</code> and <code>map-of</code> will conform all of their elements, which may make them unsuitable for large collections. In that case, consider <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/every"><code>every</code></a> or for maps  <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/every-kv"><code>every-kv</code></a>.</p>
+</td>
+</tr>
+</tbody></table>
+</div>
+<p>While <code>coll-of</code> is good for homogenous collections of any size, another case is a fixed-size positional collection with fields of known type at different positions. For that we have <code>tuple</code>.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Note that in this case of a "point" structure with x/y/z values we actually had a choice of three possible specs:</p>
+<div>
+<ul>
+<li>
+<p>Regular expression - <code>(s/cat :x double? :y double? :z double?)</code></p>
+<div>
+<ul>
+<li>
+<p>Allows for matching nested structure (not needed here)</p>
+</li>
+<li>
+<p>Conforms to map with named keys based on the <code>cat</code> tags</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Collection - <code>(s/coll-of double?)</code></p>
+<div>
+<ul>
+<li>
+<p>Designed for arbitrary size homogenous collections</p>
+</li>
+<li>
+<p>Conforms to a vector of the values</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Tuple - <code>(s/tuple double? double? double?)</code></p>
+<div>
+<ul>
+<li>
+<p>Designed for fixed size with known positional "fields"</p>
+</li>
+<li>
+<p>Conforms to a vector of the values</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<p>In this example, <code>coll-of</code> will match other (invalid) values as well (like <code>[1.0]</code> or <code>[1.0 2.0 3.0 4.0])</code>, so it is not a suitable choice - we want fixed fields. The choice between a regular expression and tuple here is to some degree a matter of taste, possibly informed by whether you expect either the tagged return values or error output to be better with one or the other.</p>
+<p>In addition to the support for information maps via <code>keys</code>, spec also provides <code>map-of</code> for maps with homogenous key and value predicates.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>By default <code>map-of</code> will validate but not conform keys because conformed keys might create key duplicates that would cause entries in the map to be overridden. If conformed keys are desired, pass the option <code>:conform-keys true</code>.</p>
+<p>You can also use the various count-related options on <code>map-of</code> that you have with <code>coll-of</code>.</p>
+</div>
+</div>
+<div>
+<h2 id="_sequences"><a href="#_sequences"></a>Sequences</h2>
+<div>
+<p>Sometimes sequential data is used to encode additional structure (typically new syntax, often used in macros). spec provides the standard <a href="https://en.wikipedia.org/wiki/Regular_expression">regular expression</a> operators to describe the structure of a sequential data value:</p>
+<div>
+<ul>
+<li>
+<p><a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/cat"><code>cat</code></a> - concatenation of predicates/patterns</p>
+</li>
+<li>
+<p><a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/alt"><code>alt</code></a> - choice among alternative predicates/patterns</p>
+</li>
+<li>
+<p><a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/*"><code>*</code></a> - 0 or more of a predicate/pattern</p>
+</li>
+<li>
+<p><a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/%2B"><code>+</code></a> - 1 or more of a predicate/pattern</p>
+</li>
+<li>
+<p><a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/%3F"><code>?</code></a> - 0 or 1 of a predicate/pattern</p>
+</li>
+</ul>
+</div>
+<p>Like <code>or</code>, both <code>cat</code> and <code>alt</code> tag their "parts" - these tags are then used in the conformed value to identify what was matched, to report errors, and more.</p>
+<p>Consider an ingredient represented by a vector containing a quantity (number) and a unit (keyword). The spec for this data uses <code>cat</code> to specify the right components in the right order. Like predicates, regex operators are implicitly converted to specs when passed to functions like <code>conform</code>, <code>valid?</code>, etc.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>The data is conformed as a map with the tags as keys. We can use <code>explain</code> to examine non-conforming data.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Let’s now see the various occurrence operators <code>*</code>, <code>+</code>, and <code>?</code>:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Finally, we can use <code>alt</code> to specify alternatives within the sequential data. Like <code>cat</code>, <code>alt</code> requires you to tag each alternative but the conformed data is a vector of tag and value.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>If you need a description of a specification, use <code>describe</code> to retrieve one. Let’s try it on some of the specifications we’ve already defined:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Spec also defines one additional regex operator, <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/&amp;"><code>&amp;</code></a>, which takes a regex operator and constrains it with one or more additional predicates. This can be used to create regular expressions with additional constraints that would otherwise require custom predicates. For example, consider wanting to match only sequences with an even number of strings:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>When regex ops are combined, they describe a single sequence. If you need to spec a nested sequential collection,
+you must use an explicit call to <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/spec"><code>spec</code></a>
+to start a new nested regex context. For example to describe a sequence like <code>[:names ["a" "b"] :nums [1 2 3]]</code>,
+you need nested regular expressions to describe the inner sequential data:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>If the specs were removed this spec would instead match a sequence like <code>[:names "a" "b" :nums 1 2 3]</code>.</p>
+<div>
+<div>
+
+</div>
+</div>
+</div>
+</div>
+<div>
+<h2 id="_using_spec_for_validation"><a href="#_using_spec_for_validation"></a>Using spec for validation</h2>
+<div>
+<p>Now is a good time to step back and think about how spec can be used for runtime data validation.</p>
+<p>One way to use spec is to explicitly call <code>valid?</code> to verify input data passed to a function. You can, for example, use the existing pre- and post-condition support built into <code>defn</code>:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>When the function is invoked with something that isn’t valid <code>::person</code> data, the pre-condition fails. Similarly, if there was a bug in our code and the output was not a string, the post-condition would fail.</p>
+<p>Another option is to use <code>s/assert</code> within your code to assert that a value satisfies a spec. On success the value is returned and on failure an assertion error is thrown. By default assertion checking is off - this can be changed at the REPL with <code>s/check-asserts</code> or on startup by setting the system property <code>clojure.spec.check-asserts=true</code>.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>A deeper level of integration is to call conform and use the return value to destructure the input. This will be particularly useful for complex inputs with alternate options.</p>
+<p>Here we conform using the config specification defined above:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Here configure calls <code>conform</code> to destructure the config input. The result is either the special <code>::s/invalid</code> value or a destructured form of the result:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>In the success case, the parsed input is transformed into the desired shape for further processing. In the error case, we call <code>explain-data</code> to generate error message data. The explain data contains information about what expression failed to conform, the path to that expression in the specification, and the predicate it was attempting to match.</p>
+</div>
+</div>
+<div>
+<h2 id="_spec_ing_functions"><a href="#_spec_ing_functions"></a>Spec’ing functions</h2>
+<div>
+<p>The pre- and post-condition example in the previous section hinted at an interesting question - how do we define the input and output specifications for a function or macro?</p>
+<p>Spec has explicit support for this using <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/fdef"><code>fdef</code></a>, which defines specifications for a function - the arguments and/or the return value spec, and optionally a function that can specify a relationship between args and return.</p>
+<p>Let’s consider a <code>ranged-rand</code> function that produces a random number in a range:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>We can then provide a specification for that function:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>This function spec demonstrates a number of features. First the <code>:args</code> is a compound spec that describes the function arguments. This spec is invoked with the args in a list, as if they were passed to <code>(apply fn (arg-list))</code>. Because the args are sequential and the args are positional fields, they are almost always described using a regex op, like <code>cat</code>, <code>alt</code>, or <code>*</code>.</p>
+<p>The second <code>:args</code> predicate takes as input the conformed result of the first predicate and verifies that start &lt; end. The <code>:ret</code> spec indicates the return is also an integer. Finally, the <code>:fn</code> spec checks that the return value is &gt;= start and &lt; end.</p>
+<p>Once a spec has been created for a function, the <code>doc</code> for the function will also include it:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>We’ll see later how we can use a function spec for development and testing.</p>
+</div>
+</div>
+<div>
+<h2 id="_higher_order_functions"><a href="#_higher_order_functions"></a>Higher order functions</h2>
+<div>
+<p>Higher order functions are common in Clojure and spec provides <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/fspec"><code>fspec</code></a> to support spec’ing them.</p>
+<p>For example, consider the <code>adder</code> function:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p><code>adder</code> returns a function that adds x. We can declare a function spec for <code>adder</code> using <code>fspec</code> for the return value:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>The <code>:ret</code> spec uses <code>fspec</code> to declare that the returning function takes and returns a number. Even more interesting, the <code>:fn</code> spec can state a general property that relates the <code>:args</code> (where we know x) and the result we get from invoking the function returned from <code>adder</code>, namely that adding 0 to it should return x.</p>
+</div>
+</div>
+<div>
+<h2 id="_macros"><a href="#_macros"></a>Macros</h2>
+<div>
+<p>As macros are functions that take code and produce code, they can also be spec’ed like functions. One special consideration however is that you must keep in mind that you are receiving code as data, not evaluated arguments, and that you are most commonly producing new code as data, so often it’s not helpful to spec the :ret value of a macro (as it’s just code).</p>
+<p>For example, we could spec the <code>clojure.core/declare</code> macro like this:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>The Clojure macroexpander will look for and conform :args specs registered for macros at macro expansion time (not runtime!). If an error is detected, <code>explain</code> will be invoked to explain the error:</p>
+
+<p>Because macros are always checked during macro expansion, you do not need to call instrument for macro specs.</p>
+</div>
+</div>
+<div>
+<h2 id="_a_game_of_cards"><a href="#_a_game_of_cards"></a>A game of cards</h2>
+<div>
+<p>Here’s a bigger set of specs to model a game of cards:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>We can validate a piece of this data against the schema:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Or look at the errors we’ll get from some bad data:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>The error indicates the key path in the data structure down to the invalid value, the non-matching value, the spec part it’s trying to match, the path in that spec, and the predicate that failed.</p>
+<p>If we have a function <code>deal</code> that doles out some cards to the players we can spec that function to verify the arg and return value are both suitable data values. We can also specify a <code>:fn</code> spec to verify that the count of cards in the game before the deal equals the count of cards after the deal.</p>
+<div>
+<div>
+
+</div>
+</div>
+</div>
+</div>
+<div>
+<h2 id="_generators"><a href="#_generators"></a>Generators</h2>
+<div>
+<p>A key design constraint of spec is that all specs are also designed to act as generators of sample data that conforms to the spec (a critical requirement for property-based testing).</p>
+<div>
+<h3 id="_project_setup"><a href="#_project_setup"></a>Project Setup</h3>
+<p>spec generators rely on the Clojure property testing library <a href="https://github.com/clojure/test.check">test.check</a>. However, this dependency is dynamically loaded and you can use the parts of spec other than <code>gen</code>, <code>exercise</code>, and testing without declaring test.check as a runtime dependency. When you wish to use these parts of spec (typically during testing), you will need to declare a dev dependency on test.check.</p>
+<p>In Leiningen add this to project.clj:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>In Leiningen the dev profile dependencies are included during testing but not published as a dependency or included in uber jars.</p>
+<p>In Boot, add your dependency with test scope in your build.boot file (this is also possible in Leiningen but the approach above is preferred):</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>In Maven, declare your dependency as a test scope dependency:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>In your code you also need to include the <code>clojure.spec.gen.alpha</code> namespace:</p>
+<div>
+<div>
+
+</div>
+</div>
+</div>
+<div>
+<h3 id="_sampling_generators"><a href="#_sampling_generators"></a>Sampling Generators</h3>
+<p>The <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/gen"><code>gen</code></a> function can be used to obtain the generator for any spec.</p>
+<p>Once you have obtained a generator with <code>gen</code>, there are several ways to use it. You can generate a single sample value with <a href="https://clojure.github.io/spec.alpha/clojure.spec.gen.alpha-api.html#clojure.spec.gen.alpha/generate"><code>generate</code></a> or a series of samples with <a href="https://clojure.github.io/spec.alpha/clojure.spec.gen.alpha-api.html#clojure.spec.gen.alpha/sample"><code>sample</code></a>. Let’s see some basic examples:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>What about generating a random player in our card game?</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>What about generating a whole game?</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>So we can now start with a spec, extract a generator, and generate some data. All generated data will conform to the spec we used as a generator. For specs that have a conformed value different than the original value (anything using s/or, s/cat, s/alt, etc) it can be useful to see a set of generated samples plus the result of conforming that sample data.</p>
+</div>
+<div>
+<h3 id="_exercise"><a href="#_exercise"></a>Exercise</h3>
+<p>For this we have <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/exercise"><code>exercise</code></a>, which returns pairs of generated and conformed values for a spec. <code>exercise</code> by default produces 10 samples (like <code>sample</code>) but you can pass both functions a number indicating the number of samples to produce.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>For spec’ed functions we also have <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/exercise-fn"><code>exercise-fn</code></a>, which generates sample args, invokes the spec’ed function and returns the args and the return value.</p>
+<div>
+<div>
+
+</div>
+</div>
+</div>
+<div>
+<h3 id="_using_code_s_and_code_generators"><a href="#_using_code_s_and_code_generators"></a>Using <code>s/and</code> Generators</h3>
+<p>All of the generators we’ve seen worked fine but there are a number of cases where they will need some additional help. One common case is when the predicate implicitly presumes values of a particular type but the spec does not specify them:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>In this case spec was not able to find a generator for the <code>even?</code> predicate. Most of the primitive generators in spec are mapped to the common type predicates (strings, numbers, keywords, etc).</p>
+<p>However, spec is designed to support this case via <code>and</code> - the first predicate will determine the generator and subsequent branches will act as filters by applying the predicate to the produced values (using test.check’s <code>such-that</code>).</p>
+<p>If we modify our predicate to use an <code>and</code> and a predicate with a mapped generator, the <code>even?</code> can be used as a filter for generated values instead:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>We can use many predicates to further refine the generated values. For example, say we only wanted to generate numbers that were positive multiples of 3:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>However, it is possible to go too far with refinement and make something that fails to produce any values. The test.check <a href="https://clojure.github.io/test.check/clojure.test.check.generators.html#var-such-that"><code>such-that</code></a> that implements the refinement will throw an error if the refinement predicate cannot be resolved within a relatively small number of attempts. For example, consider trying to generate strings that happen to contain the word "hello":</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Given enough time (maybe a lot of time), the generator probably would come up with a string like this, but the underlying <code>such-that</code> will make only 100 attempts to generate a value that passes the filter. This is a case where you will need to step in and provide a custom generator.</p>
+</div>
+<div>
+<h3 id="_custom_generators"><a href="#_custom_generators"></a>Custom Generators</h3>
+<p>Building your own generator gives you the freedom to be either narrower and/or be more explicit about what values you want to generate. Alternately, custom generators can be used in cases where conformant values can be generated more efficiently than using a base predicate plus filtering. Spec does not trust custom generators and any values they produce will also be checked by their associated spec to guarantee they pass conformance.</p>
+<p>There are three ways to build up custom generators - in decreasing order of preference:</p>
+<div>
+<ol>
+<li>
+<p>Let spec create a generator based on a predicate/spec</p>
+</li>
+<li>
+<p>Create your own generator from the tools in clojure.spec.gen.alpha</p>
+</li>
+<li>
+<p>Use test.check or other test.check compatible libraries (like <a href="https://github.com/gfredericks/test.chuck">test.chuck</a>)</p>
+</li>
+</ol>
+</div>
+<div>
+<table>
+<tbody><tr>
+<td>
+<i title="Warning"></i>
+</td>
+<td>
+<p>The last option requires a runtime dependency on test.check so the first two options are strongly preferred over using test.check directly.</p>
+</td>
+</tr>
+</tbody></table>
+</div>
+<p>First consider a spec with a predicate to specify keywords from a particular namespace:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>The simplest way to start generating values for this spec is to have spec create a generator from a fixed set of options. A set is a valid predicate spec so we can create one and ask for it’s generator:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>To redefine our spec using this custom generator, use <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/with-gen"><code>with-gen</code></a> which takes a spec and a replacement generator:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Note that <code>with-gen</code> (and other places that take a custom generator) take a no-arg function that returns the generator, allowing it to be lazily realized.</p>
+<p>One downside to this approach is we are missing what property testing is really good at: automatically generating data across a wide search space to find unexpected problems.</p>
+<p>The clojure.spec.gen.alpha namespace has a number of functions for generator "primitives" as well as "combinators" for combining them into more complicated generators.</p>
+<div>
+<table>
+<tbody><tr>
+<td>
+<i title="Note"></i>
+</td>
+<td>
+<p>Nearly all of the functions in the clojure.spec.gen.alpha namespace are merely wrappers that dynamically load functions of the same name in test.check. You should refer to the documentation for <a href="https://clojure.github.io/test.check/">test.check</a> for more details on how all of the clojure.spec.gen.alpha generator functions work.</p>
+</td>
+</tr>
+</tbody></table>
+</div>
+<p>In this case we want our keyword to have open names but fixed namespaces. There are many ways to accomplish this but one of the simplest is to use <a href="https://clojure.github.io/spec.alpha/clojure.spec.gen.alpha-api.html#clojure.spec.gen.alpha/fmap"><code>fmap</code></a> to build up a keyword based on generated strings:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p><code>gen/fmap</code> takes a function to apply and a generator. The function will be applied to each sample produced by the generator allowing us to build one generator on another.</p>
+<p>However, we can spot a problem in the example above - generators are often designed to return "simpler" values first and any string-oriented generator will often return an empty string which is not a valid keyword. We can make a slight adjustment to omit that particular value using <a href="https://clojure.github.io/spec.alpha/clojure.spec.gen.alpha-api.html#clojure.spec.gen.alpha/such-that"><code>such-that</code></a> which lets us specify a filtering condition:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Returning to our "hello" example, we now have the tools to make that generator:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Here we generate a tuple of a random prefix and random suffix strings, then insert "hello" between them.</p>
+</div>
+<div>
+<h3 id="_range_specs_and_generators"><a href="#_range_specs_and_generators"></a>Range Specs and Generators</h3>
+<p>There are several cases where it’s useful to spec (and generate) values in a range and spec provides helpers for these cases.</p>
+<p>For example, in the case of a range of integer values (for example, a bowling roll), use <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/int-in"><code>int-in</code></a> to spec a range (end is exclusive):</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>spec also includes <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/inst-in"><code>inst-in</code></a> for a range of instants:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Due to the generator implementation, it takes a few samples to get "interesting" so I skipped ahead a bit.</p>
+<p>Finally, <a href="https://clojure.github.io/spec.alpha/clojure.spec.alpha-api.html#clojure.spec.alpha/double-in"><code>double-in</code></a> has support for double ranges and special options for checking special double values like <code>NaN</code> (not a number), <code>Infinity</code>, and <code>-Infinity</code>.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>To learn more about generators, read the test.check <a href="https://clojure.github.io/test.check/intro.html">tutorial</a> or <a href="https://clojure.github.io/test.check/generator-examples.html">examples</a>. Do keep in mind that while clojure.spec.gen.alpha is a large subset of clojure.test.check.generators, not everything is included.</p>
+</div>
+</div>
+</div>
+<div>
+<h2 id="_instrumentation_and_testing"><a href="#_instrumentation_and_testing"></a>Instrumentation and Testing</h2>
+<div>
+<p>spec provides a set of development and testing functionality in the <code>clojure.spec.test.alpha</code> namespace, which we can include with:</p>
+<div>
+<div>
+
+</div>
+</div>
+<div>
+<h3 id="_instrumentation"><a href="#_instrumentation"></a>Instrumentation</h3>
+<p>Instrumentation validates that the <code>:args</code> spec is being invoked on instrumented functions and thus provides validation for external uses of a function. Let’s turn on instrumentation for our previously spec’ed <code>ranged-rand</code> function:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>Instrument takes a fully-qualified symbol so we use <code>`</code> here to resolve it in the context of the current namespace. If the function is invoked with args that do not conform with the <code>:args</code> spec you will see an error like this:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>The error fails in the second args predicate that checks <code>(&lt; start end)</code>. Note that the <code>:ret</code> and <code>:fn</code> specs are not checked with instrumentation as validating the implementation should occur at testing time.</p>
+<p>Instrumentation can be turned off using the complementary function <code>unstrument</code>. Instrumentation is likely to be useful at both development time and during testing to discover errors in calling code. It is not recommended to use instrumentation in production due to the overhead involved with checking args specs.</p>
+</div>
+<div>
+<h3 id="_testing"><a href="#_testing"></a>Testing</h3>
+<p>We mentioned earlier that <code>clojure.spec.test.alpha</code> provides tools for automatically testing functions. When functions have specs, we can use <a href="https://clojure.github.io/spec.alpha/clojure.spec.test.alpha-api.html#clojure.spec.test.alpha/check"><code>check</code></a>, to automatically generate tests that check the function using the specs.</p>
+<p><code>check</code> will generate arguments based on the <code>:args</code> spec for a function, invoke the function, and check that the <code>:ret</code> and <code>:fn</code> specs were satisfied.</p>
+<div>
+<div>
+
+</div>
+</div>
+<div>
+<table>
+<tbody><tr>
+<td>
+<i title="Note"></i>
+</td>
+<td>
+<p>A keen observer will notice that <code>ranged-rand</code> contains a subtle bug. If the difference between start
+and end is very large (larger than is representable by <code>Long/MAX_VALUE</code>), then <code>ranged-rand</code> will
+produce an IntegerOverflowException. If you run <code>check</code> several times you will eventually
+cause this case to occur.</p>
+</td>
+</tr>
+</tbody></table>
+</div>
+<p><code>check</code> also takes a number of options that can be passed to test.check to influence the test run, as well as the option to override generators for parts of the spec, by either name or path.</p>
+<p>Imagine instead that we made an error in the ranged-rand code and swapped start and end:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>This broken function will still create random integers, just not in the expected range. Our <code>:fn</code> spec will detect the problem when checking the var:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p><code>check</code> has reported an error in the <code>:fn</code> spec. We can see the arguments passed were -3 and 0 and the return value was -5, which is out of the expected range.</p>
+<p>To test all of the spec’ed functions in a namespace (or multiple namespaces), use <a href="https://clojure.github.io/spec.alpha/clojure.spec.test.alpha-api.html#clojure.spec.test.alpha/enumerate-namespace"><code>enumerate-namespace</code></a> to generate the set of symbols naming vars in the namespace:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>And you can check all of the spec’ed functions by calling <code>stest/check</code> without any arguments.</p>
+</div>
+<div>
+<h3 id="_combining_code_check_code_and_code_instrument_code"><a href="#_combining_code_check_code_and_code_instrument_code"></a>Combining <code>check</code> and <code>instrument</code></h3>
+<p>While both <code>instrument</code> (for enabling <code>:args</code> checking) and <code>check</code> (for generating tests of a function) are useful tools, they can be combined to provide even deeper levels of test coverage.</p>
+<p><code>instrument</code> takes a number of options for changing the behavior of instrumented functions, including support for swapping in alternate (narrower) specs, stubbing functions (by using the <code>:ret</code> spec to generate results), or replacing functions with an alternate implementation.</p>
+<p>Consider the case where we have a low-level function that invokes a remote service and a higher-level function that calls it.</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>We can spec these functions using the following specs:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>And then we want to test the behavior of <code>run-query</code> while stubbing out <code>invoke-service</code> with <code>instrument</code> so that the remote service is not invoked:</p>
+<div>
+<div>
+
+</div>
+</div>
+<p>The first call here instruments and stubs <code>invoke-service</code>. The second and third calls demonstrate that calls to <code>invoke-service</code> now return generated results (rather than hitting a service). Finally, we can use <code>check</code> on the higher level function to test that it behaves properly based on the generated stub results returned from <code>invoke-service</code>.</p>
+</div>
+</div>
+</div>
+<div>
+<h2 id="_wrapping_up"><a href="#_wrapping_up"></a>Wrapping Up</h2>
+<div>
+<p>In this guide we have covered most of the features for designing and using specs and generators. We expect to add some more advanced generator techniques and help on testing in a future update.</p>
+</div>
+</div>
+
+      <p><em>Original author: Alex Miller</em></p>
+
+
+
+
+    
