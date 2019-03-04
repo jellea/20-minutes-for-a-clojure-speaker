@@ -1,12 +1,10 @@
-# minutes-for-a-speaker.core
+# [Insert generated title of talk here]
 
-FIXME: Write a one-line description of your library/project.
+September 1954, composer John Cage writes “45 minutes for a speaker”, a set of rules meant to compose a lecture through chance operations. Using questions like “1. Is there speech or silence?” or “4. If speech, is it old material or new?” Cage composed the speech’s content, noises and gestures.
 
-## Overview
+February 2019, I generate and perform a 20-minute talk, on the fly, using clojure.spec, about clojure.spec.
 
-FIXME: Write a paragraph about the library/project and highlight its goals.
-
-## Development
+## Generate your own presentation
 
 To get an interactive development environment run:
 
@@ -28,7 +26,6 @@ To create a production build run:
 
 	rm -rf target/public
 	clojure -A:fig:min
-
 
 ## License
 
