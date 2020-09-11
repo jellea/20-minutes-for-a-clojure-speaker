@@ -4,6 +4,8 @@ September 1954, composer John Cage writes “45 minutes for a speaker”, a set 
 
 February 2019, I generate and perform a 20-minute talk, on the fly, using clojure.spec, about clojure.spec.
 
+[I wrote a bit about me performing this talk at ClojureD on my blog](https://jelle.io/talking-gibberish-on-a-tech-conference-4021140)
+
 ## Generate your own presentation
 
 To get an interactive development environment run:
